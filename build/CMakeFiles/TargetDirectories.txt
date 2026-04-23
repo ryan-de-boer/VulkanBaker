@@ -1,0 +1,3 @@
+/mnt/d/code/vulkan/ClaudeComputeShader/build/CMakeFiles/vulkan_app.dir
+/mnt/d/code/vulkan/ClaudeComputeShader/build/CMakeFiles/edit_cache.dir
+/mnt/d/code/vulkan/ClaudeComputeShader/build/CMakeFiles/rebuild_cache.dir

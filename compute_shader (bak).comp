@@ -1,0 +1,30 @@
+#version 450
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(rgba8, set = 0, binding = 0) uniform image2D outImage;
+
+void main() {
+    ivec2 pixelCoords = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 imageSize = imageSize(outImage);
+    
+    vec2 uv = vec2(pixelCoords) / vec2(imageSize);
+    
+    // Create a more interesting quad pattern
+    vec2 quadMin = vec2(0.2);
+    vec2 quadMax = vec2(0.8);
+    
+    bool insideQuad = uv.x >= quadMin.x && uv.x <= quadMax.x &&
+                      uv.y >= quadMin.y && uv.y <= quadMax.y;
+    
+    vec4 color;
+    if (insideQuad) {
+        // Gradient with checkerboard pattern
+        float checkerboard = mod(floor(uv.x * 8.0) + floor(uv.y * 8.0), 2.0);
+        vec3 gradient = vec3(uv.x, uv.y, 0.5 + 0.3 * checkerboard);
+        color = vec4(gradient, 1.0);
+    } else {
+        color = vec4(0.1, 0.1, 0.1, 1.0);
+    }
+    
+    imageStore(outImage, pixelCoords, color);
+}

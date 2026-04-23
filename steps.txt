@@ -1,0 +1,28 @@
+# Compile shader to SPIR-V
+glslc compute_shader.comp -o shader.spv
+
+# Compile C++
+g++ -std=c++17 main.cpp -o compute_app -I/usr/include/vulkan -I/path/to/glm/include -L/usr/lib/x86_64-linux-gnu -lvulkan
+
+
+#2
+Download this header: https://github.com/nothings/stb/blob/master/stb_image_write.h
+sudo apt  install cmake
+
+
+# Compile shaders
+glslc compute_shader.comp -o compute_shader.spv
+glslc vertex_shader.vert -o vertex_shader.spv
+glslc fragment_shader.frag -o fragment_shader.spv
+
+# Build
+mkdir build
+cd build
+cmake ..
+make
+
+# Run
+./vulkan_app
+
+
+g++ -std=c++17 main.cpp -o vulkan_app -I/usr/include/vulkan -I/path/to/glm/include -L/usr/lib/x86_64-linux-gnu -lglfw -lvulkan
