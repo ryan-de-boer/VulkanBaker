@@ -1,2 +1,2 @@
 # VulkanBaker
-Bakes Vulkan shaders into textures
+Bakes Vulkan shaders into textures (on Linux).
