@@ -1,3 +1,23 @@
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_vulkan.h"
+#include <stdio.h>          // printf, fprintf
+#include <stdlib.h>         // abort
+#define GLFW_INCLUDE_NONE
+#define GLFW_INCLUDE_VULKAN
+
+// Volk headers
+#ifdef IMGUI_IMPL_VULKAN_USE_VOLK
+#define VOLK_IMPLEMENTATION
+#include <volk.h>
+#endif
+
+//#define APP_USE_UNLIMITED_FRAME_RATE
+#ifdef _DEBUG
+#define APP_USE_VULKAN_DEBUG_REPORT
+static VkDebugReportCallbackEXT g_DebugReport = VK_NULL_HANDLE;
+#endif
+
 #include <vulkan/vulkan.h>
 #include <glm/glm.hpp>
 #include <GLFW/glfw3.h>
@@ -22,6 +42,8 @@ const uint32_t TEXTURE_HEIGHT = 512;
 //const uint32_t WINDOW_HEIGHT = 600;
 const uint32_t WINDOW_WIDTH = 1024*2;
 const uint32_t WINDOW_HEIGHT = 768*2;
+
+    uint32_t g_imageIndex;
 
 //0 = quad, 1==tri
                             int shapeType = 1;
@@ -59,6 +81,11 @@ void captureFrame() {
         rdoc_api->EndFrameCapture(NULL, NULL);
     }
 }
+
+static ImGui_ImplVulkanH_Window g_MainWindowData;
+static uint32_t                 g_MinImageCount = 2;
+static bool                     g_SwapChainRebuild = false;
+
 
 bool g_capture = false;
 
@@ -524,6 +551,8 @@ if (result != VK_SUCCESS) {
         std::cout << "createBakedDescriptorSet\n";
         createBakedDescriptorSet();
 
+        createImGui();
+
         std::cout << "createSynchronizationObjects\n";
         if (!createSynchronizationObjects()) return false;
         std::cout << "end init\n";
@@ -534,7 +563,7 @@ if (result != VK_SUCCESS) {
     bool initWindow() {
 
 //        glfwDefaultWindowHints();
-        glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_X11); 
+//        glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_X11); 
 
         if (!glfwInit()) {
             std::cerr << "Failed to initialize GLFW" << std::endl;
@@ -560,7 +589,8 @@ if (result != VK_SUCCESS) {
         glfwSetWindowUserPointer(window, this);
         glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
         glfwSetKeyCallback(window, keyCallback);
-        
+       
+ 
         return true;
     }
 
@@ -686,6 +716,143 @@ if (glfwExtensionCount == 0) {
 //     return (result == VK_SUCCESS);
 // }
 
+// Keep a global or class variable tracker for this new pool
+VkDescriptorPool imguiDescriptorPool = VK_NULL_HANDLE;
+
+bool createImGui() {
+
+    /*
+        ImGui_ImplVulkanH_Window* wd = &g_MainWindowData;
+        std::memset(wd, 0, sizeof(ImGui_ImplVulkanH_Window)); // Clear old or garbage data
+        wd->Surface = surface;
+
+        std::cout << "before ImGui_ImplVulkanH_CreateOrResizeWindow\n";
+        std::cout << "surface: " << surface << "\n";
+        std::cout << "instance: " << instance << "\n";
+        std::cout << "physicalDevice: " << physicalDevice << "\n";
+        std::cout << "device: " << device << "\n";
+        std::cout << "wd: " << wd << "\n";
+        std::cout << "queueFamilyIndex: " << queueFamilyIndex << "\n";
+        std::cout << "g_MinImageCount: " << g_MinImageCount << "\n";
+
+//ImGui_ImplVulkanH_CreateOrResizeWindow(instance, physicalDevice, device, wd, queueFamilyIndex, /*g_Allocator*//*nullptr, WINDOW_WIDTH, WINDOW_HEIGHT, g_MinImageCount, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
+
+
+// 1. Fill out the normal initialization structure using your existing handles
+ImGui_ImplVulkan_InitInfo init_info = {};
+init_info.Instance = instance;
+init_info.PhysicalDevice = physicalDevice;
+init_info.Device = device;
+init_info.QueueFamily = queueFamilyIndex;
+init_info.Queue = queue;
+init_info.PipelineCache = VK_NULL_HANDLE;
+init_info.DescriptorPool = graphicsDescriptorPool; // Use your app's descriptor pool
+//init_info.RenderPass = renderPass;                 // Use your app's main render pass
+//init_info.Subpass = 0;
+init_info.MinImageCount = swapchainImages.size();  // Match your swapchain size
+init_info.ImageCount = swapchainImages.size();
+//init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+init_info.Allocator = nullptr;
+// init_info.CheckVkResult = [](VkResult err) { 
+//     if (err == VK_SUCCESS) return;
+//     std::cerr << "[Vulkan Error] Code: " << err << "\n"; 
+// };
+
+// 2. Initialize the backend directly without using the 'H' window structures
+ImGui_ImplVulkan_Init(&init_info);
+
+
+        std::cout << "after ImGui_ImplVulkanH_CreateOrResizeWindow\n";
+*/
+
+   // 1. Create the core context state machine first (fixes your GImGui assertion error)
+    ImGui::CreateContext();
+
+    ImGui::StyleColorsDark();
+
+// 2. Hand your dynamic function loader address over to the ImGui backend
+ImGui_ImplVulkan_LoadFunctions(
+    VK_API_VERSION_1_2, // <--- ADD THIS PARAMETER FIRST
+    [](const char* function_name, void* user_data) {
+        return vkGetInstanceProcAddr(static_cast<VkInstance>(user_data), function_name);
+    }, 
+    instance
+);
+
+    // 2. Initialize the platform window wrapper
+    ImGui_ImplGlfw_InitForVulkan(window, true);
+
+        // 3. CREATE A DEDICATED DESCRIPTOR POOL FOR IMGUI
+    VkDescriptorPoolSize pool_sizes[] = {
+        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 10 } // Allow up to 10 image sets
+    };
+    VkDescriptorPoolCreateInfo pool_info = {};
+    pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+    pool_info.maxSets = 10;
+    pool_info.poolSizeCount = static_cast<uint32_t>(std::size(pool_sizes));
+    pool_info.pPoolSizes = pool_sizes;
+    if (vkCreateDescriptorPool(device, &pool_info, nullptr, &imguiDescriptorPool) != VK_SUCCESS) {
+        std::cerr << "Failed to create ImGui descriptor pool!\n";
+        return false;
+    }
+
+    // 5. Build initialization info with modern nested properties layout
+    ImGui_ImplVulkan_InitInfo init_info = {};
+    init_info.Instance = instance;
+    init_info.PhysicalDevice = physicalDevice;
+    init_info.Device = device;
+    init_info.QueueFamily = queueFamilyIndex;
+    init_info.Queue = queue;
+    init_info.DescriptorPool = imguiDescriptorPool; 
+    init_info.MinImageCount = static_cast<uint32_t>(swapchainImages.size());
+    init_info.ImageCount = static_cast<uint32_t>(swapchainImages.size());
+
+    // --- RECENT IMGUI BREAKING CHANGES RESOLUTION ---
+    init_info.UseDynamicRendering = true; 
+
+    // Setup standard Vulkan Dynamic Rendering attachment properties structures
+    VkPipelineRenderingCreateInfo rendering_info{};
+    rendering_info.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+    rendering_info.colorAttachmentCount = 1;
+    VkFormat swapchainImageFormat = VK_FORMAT_B8G8R8A8_SRGB; 
+    rendering_info.pColorAttachmentFormats = &swapchainImageFormat; // Pass your swapchain VkFormat pointer
+//    VK_FORMAT_B8G8R8A8_SRGB
+
+    // Nest the layout configurations inside your target version's parameters block
+    init_info.PipelineInfoMain.PipelineRenderingCreateInfo = rendering_info;
+    init_info.PipelineInfoMain.MSAASamples = VK_SAMPLE_COUNT_1_BIT; 
+    // ------------------------------------------------
+    init_info.CheckVkResultFn = [](VkResult err) {
+        if (err == VK_SUCCESS) return;
+        std::cerr << "[ImGui Vulkan Error] Code: " << err << "\n";
+    };
+
+ //   init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+//    init_info.Allocator = nullptr;
+    // init_info.CheckVkResult = [](VkResult err) {
+    //     if (err == VK_SUCCESS) return;
+    //     std::cerr << "[ImGui Vulkan Error] Code: " << err << "\n";
+    // };
+
+    // 4. Initialize the Vulkan backend directly
+    ImGui_ImplVulkan_Init(&init_info);
+
+//     // 1. Allocate a temporary single-time command buffer using your application's pool
+// VkCommandBuffer commandBuffer = beginSingleTimeCommands(); 
+
+// // 2. Record the font atlas generation commands into it
+// ImGui_ImplVulkan_CreateFontsTexture(commandBuffer);
+
+// // 3. Submit and wait for the GPU to finish the transfer
+// endSingleTimeCommands(commandBuffer);
+
+// // 4. Safely clear the temporary staging resources used by the CPU text generator
+// ImGui_ImplVulkan_DestroyFontUploadObjects(); 
+
+    return true;
+}
+
     bool createSurface() {
 
         VkResult r = glfwCreateWindowSurface(instance, window, nullptr, &surface);
@@ -788,6 +955,9 @@ if (glfwExtensionCount == 0) {
     bool createSwapchain() {
         VkSurfaceCapabilitiesKHR capabilities;
         vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface, &capabilities);
+
+        // Set your global min image count to what the physical device actually reports
+        g_MinImageCount = capabilities.minImageCount; 
 
         uint32_t formatCount;
         vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount, nullptr);
@@ -1363,6 +1533,7 @@ if (glfwExtensionCount == 0) {
         vkEndCommandBuffer(commandBuffer);
     }
 
+
     void recordGraphicsCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -1399,6 +1570,40 @@ if (glfwExtensionCount == 0) {
         vkCmdPushConstants(commandBuffer, graphicsPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(int), &shapeType);
         vkCmdPushConstants(commandBuffer, graphicsPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 4, sizeof(int), &flipV);
         vkCmdDraw(commandBuffer, vertexCount, 1, 0, 0);
+
+                std::cout << "R 1\n";
+                g_imageIndex = imageIndex;
+
+                // Right before you close the render pass, tell ImGui to record its draw data:
+//ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer, graphicsPipeline);
+
+
+     // --- FIX FOR THE STRANGE BLACK TRIANGLE ---
+        // 1. Unbind your custom pipeline descriptor state layout
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipelineLayout, 0, 0, nullptr, 0, nullptr);
+        
+        // 2. Clear out your active push constant blocks so ImGui doesn't inherit them
+        int zero_val = 0;
+        vkCmdPushConstants(commandBuffer, graphicsPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(int), &zero_val);
+        vkCmdPushConstants(commandBuffer, graphicsPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 4, sizeof(int), &zero_val);
+        // ------------------------------------------
+
+        // 3. Force ImGui to map the correct active index buffer tracker (Our previous patch)
+        //(used g_imageIndex instead)
+        // ImGui_ImplVulkan_Data* bd = ImGui_ImplVulkan_GetBackendData();
+        // if (bd != nullptr) {
+        //     wrb->Index = g_imageIndex; // Ensure your local modified source file locks this index
+        // }
+
+        // 4. Record ImGui draw commands cleanly
+        ImDrawData* drawData = ImGui::GetDrawData();
+        if (drawData != nullptr && drawData->CmdListsCount > 0) {
+            ImGui_ImplVulkan_RenderDrawData(drawData, commandBuffer);
+        }
+
+
+                std::cout << "R 2\n";
+
 
         vkCmdEndRenderPass(commandBuffer);
         vkEndCommandBuffer(commandBuffer);
@@ -1474,7 +1679,33 @@ if (g_capture)
         VkCommandBuffer commandBuffer;
         vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer);
 
+        //
+        std::cout << "I 1\n";
+// 1. Start the logical ImGui frame
+ImGui_ImplVulkan_NewFrame();
+        std::cout << "I 2\n";
+ImGui_ImplGlfw_NewFrame();
+        std::cout << "I 3\n";
+ImGui::NewFrame();
+        std::cout << "I 4\n";
+
+// 2. Write your UI elements
+ImGui::Begin("Vulkan Dashboard");
+        std::cout << "I 5\n";
+ImGui::Text("Application running smoothly.");
+        std::cout << "I 6\n";
+ImGui::End();
+        std::cout << "I 7\n";
+
+// 3. Finalise the geometry vertices layout 
+ImGui::Render();
+        std::cout << "I 8\n";
+
         recordGraphicsCommandBuffer(commandBuffer, imageIndex);
+
+        std::cout << "I 9\n";
+        //
+        std::cout << "I 10\n";
 
         VkSubmitInfo submitInfo{};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -1510,7 +1741,9 @@ if (g_capture)
         g_capture = false;
 }
 
-    }
+
+
+    } //end drawFrame
 
     void flipBufferVertically(unsigned char* data, int width, int height, int channels) {
     int stride = width * channels;
@@ -1712,6 +1945,15 @@ for (int i = 0; i < imageSize; i += 4) {
         vkDestroySemaphore(device, imageAvailableSemaphore, nullptr);
         vkDestroySemaphore(device, renderFinishedSemaphore, nullptr);
         vkDestroyFence(device, inFlightFence, nullptr);
+
+
+            ImGui_ImplVulkan_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
+    
+    if (imguiDescriptorPool != VK_NULL_HANDLE) {
+        vkDestroyDescriptorPool(device, imguiDescriptorPool, nullptr);
+    }
 
         vkDestroyDevice(device, nullptr);
         vkDestroySurfaceKHR(instance, surface, nullptr);
