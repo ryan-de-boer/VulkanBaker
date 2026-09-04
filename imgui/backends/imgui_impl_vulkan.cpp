@@ -527,7 +527,7 @@ static void ImGui_ImplVulkan_SetupRenderState(ImDrawData* draw_data, VkPipeline 
 void ImGui_ImplVulkan_RenderDrawData(ImDrawData* draw_data, VkCommandBuffer command_buffer, VkPipeline pipeline)
 {
     
-                std::cout << "RD 1\n";
+//                std::cout << "RD 1\n";
 
     // Avoid rendering when minimized, scale coordinates for retina displays (screen coordinates != framebuffer coordinates)
     int fb_width = (int)(draw_data->DisplaySize.x * draw_data->FramebufferScale.x);
@@ -535,7 +535,7 @@ void ImGui_ImplVulkan_RenderDrawData(ImDrawData* draw_data, VkCommandBuffer comm
     if (fb_width <= 0 || fb_height <= 0)
         return;
 
-                std::cout << "RD 2\n";
+//                std::cout << "RD 2\n";
     // Catch up with texture updates. Most of the times, the list will have 1 element with an OK status, aka nothing to do.
     // (This almost always points to ImGui::GetPlatformIO().Textures[] but is part of ImDrawData to allow overriding or disabling texture updates).
     if (draw_data->Textures != nullptr)
@@ -558,7 +558,7 @@ void ImGui_ImplVulkan_RenderDrawData(ImDrawData* draw_data, VkCommandBuffer comm
         memset((void*)wrb->FrameRenderBuffers.Data, 0, wrb->FrameRenderBuffers.size_in_bytes());
     }
     IM_ASSERT(wrb->Count == v->ImageCount);
-                std::cout << "RD 3\n";
+//                std::cout << "RD 3\n";
 
     //wrb->Index = (wrb->Index + 1) % wrb->Count;
     // CRITICAL FIX HERE: Force ImGui to strictly use your application's current swapchain image index
@@ -606,28 +606,28 @@ void ImGui_ImplVulkan_RenderDrawData(ImDrawData* draw_data, VkCommandBuffer comm
         vkUnmapMemory(v->Device, rb->VertexBufferMemory);
         vkUnmapMemory(v->Device, rb->IndexBufferMemory);
     }
-                std::cout << "RD 4\n";
+//                std::cout << "RD 4\n";
 
     // Setup desired Vulkan state
     ImGui_ImplVulkan_SetupRenderState(draw_data, pipeline, command_buffer, rb, fb_width, fb_height);
-                std::cout << "RD 4.1\n";
+//                std::cout << "RD 4.1\n";
 
     // Setup render state structure (for callbacks and custom texture bindings)
     ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
-                std::cout << "RD 4.2\n";
+//                std::cout << "RD 4.2\n";
     ImGui_ImplVulkan_RenderState render_state;
-                std::cout << "RD 4.3\n";
+//                std::cout << "RD 4.3\n";
     render_state.CommandBuffer = command_buffer;
     render_state.Pipeline = pipeline;
     render_state.PipelineLayout = bd->PipelineLayout;
     platform_io.Renderer_RenderState = &render_state;
-                std::cout << "RD 4.4\n";
+//                std::cout << "RD 4.4\n";
 
     // Will project scissor/clipping rectangles into framebuffer space
     ImVec2 clip_off = draw_data->DisplayPos;         // (0,0) unless using multi-viewports
-                std::cout << "RD 4.5\n";
+//                std::cout << "RD 4.5\n";
     ImVec2 clip_scale = draw_data->FramebufferScale; // (1,1) unless using retina display which are often (2,2)
-                std::cout << "RD 5\n";
+//                std::cout << "RD 5\n";
 
     // Render command lists
     // (Because we merged all buffers into a single one, we maintain our own offset into them)
@@ -684,7 +684,7 @@ void ImGui_ImplVulkan_RenderDrawData(ImDrawData* draw_data, VkCommandBuffer comm
         global_idx_offset += draw_list->IdxBuffer.Size;
         global_vtx_offset += draw_list->VtxBuffer.Size;
     }
-                std::cout << "RD 6\n";
+//                std::cout << "RD 6\n";
     platform_io.Renderer_RenderState = nullptr;
 
     // Note: at this point both vkCmdSetViewport() and vkCmdSetScissor() have been called.
@@ -696,7 +696,7 @@ void ImGui_ImplVulkan_RenderDrawData(ImDrawData* draw_data, VkCommandBuffer comm
     // We perform a call to vkCmdSetScissor() to set back a full viewport which is likely to fix things for 99% users but technically this is not perfect. (See github #4644)
     VkRect2D scissor = { { 0, 0 }, { (uint32_t)fb_width, (uint32_t)fb_height } };
     vkCmdSetScissor(command_buffer, 0, 1, &scissor);
-                std::cout << "RD 7\n";
+//                std::cout << "RD 7\n";
 }
 
 static void ImGui_ImplVulkan_DestroyTexture(ImTextureData* tex)

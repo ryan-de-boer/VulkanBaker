@@ -576,7 +576,7 @@ if (result != VK_SUCCESS) {
         }
 
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-        glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
+        glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
 // Force the window frame buffer and screen coordinates to scale 1:1 natively
 // This completely removes the 150% cursor drift offset across the entire screen grid
@@ -808,11 +808,13 @@ ImGui_ImplVulkan_LoadFunctions(
     // 2. Initialize the platform window wrapper
 //    ImGui_ImplGlfw_InitForVulkan(window, true);
     ImGui_ImplGlfw_InitForVulkan(window, false);
+
 glfwSetWindowFocusCallback(window, ImGui_ImplGlfw_WindowFocusCallback);
 glfwSetCursorEnterCallback(window, ImGui_ImplGlfw_CursorEnterCallback);
 glfwSetMouseButtonCallback(window, ImGui_ImplGlfw_MouseButtonCallback);
 glfwSetScrollCallback(window, ImGui_ImplGlfw_ScrollCallback);
-glfwSetKeyCallback(window, ImGui_ImplGlfw_KeyCallback);
+//glfwSetKeyCallback(window, ImGui_ImplGlfw_KeyCallback);
+glfwSetKeyCallback(window, keyCallback);
 glfwSetCharCallback(window, ImGui_ImplGlfw_CharCallback);
 
     // // --- NATIVE 150% HIGH-DPI INPUT FIX ---
@@ -1590,7 +1592,7 @@ glfwSetCharCallback(window, ImGui_ImplGlfw_CharCallback);
         // --- DYNAMIC HIGH-DPI SCALING RESOLUTION ---
         int current_fb_width, current_fb_height;
         glfwGetFramebufferSize(window, &current_fb_width, &current_fb_height); // Extracts actual layout pixels
-          std::cout << "Re 1 w: "<<current_fb_width<< ", h: "<< current_fb_height <<"\n";
+//          std::cout << "Re 1 w: "<<current_fb_width<< ", h: "<< current_fb_height <<"\n";
         // -------------------------------------------
 
 
@@ -1650,7 +1652,7 @@ glfwSetCharCallback(window, ImGui_ImplGlfw_CharCallback);
         vkCmdPushConstants(commandBuffer, graphicsPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 4, sizeof(int), &flipV);
         vkCmdDraw(commandBuffer, vertexCount, 1, 0, 0);
 
-                std::cout << "R 1\n";
+//                std::cout << "R 1\n";
                 g_imageIndex = imageIndex;
 
                 // Right before you close the render pass, tell ImGui to record its draw data:
@@ -1681,7 +1683,7 @@ glfwSetCharCallback(window, ImGui_ImplGlfw_CharCallback);
         }
 
 
-                std::cout << "R 2\n";
+//                std::cout << "R 2\n";
 
 
         vkCmdEndRenderPass(commandBuffer);
@@ -1741,6 +1743,8 @@ if (g_capture)
         rdoc_api->StartFrameCapture(NULL, NULL);
         }
 }
+glfwGetFramebufferSize(window, &SWINDOW_WIDTH, &SWINDOW_HEIGHT);
+
 
 //                    std::cout << "drawFrame start..." << std::endl;
         vkWaitForFences(device, 1, &inFlightFence, VK_TRUE, UINT64_MAX);
@@ -1759,10 +1763,10 @@ if (g_capture)
         vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer);
 
         //
-        std::cout << "I 1\n";
+//        std::cout << "I 1\n";
 // 1. Start the logical ImGui frame
 ImGui_ImplVulkan_NewFrame();
-        std::cout << "I 2\n";
+//        std::cout << "I 2\n";
 ImGui_ImplGlfw_NewFrame();
 
 
@@ -1794,9 +1798,9 @@ ImGui_ImplGlfw_NewFrame();
 
 
 
-        std::cout << "I 3\n";
+//        std::cout << "I 3\n";
 ImGui::NewFrame();
-        std::cout << "I 4\n";
+//        std::cout << "I 4\n";
 
 // // --- ADD THIS INPUT OFFSET FIX ---
 // int screen_w, screen_h;
@@ -1813,9 +1817,9 @@ ImGui::NewFrame();
 
 // 2. Write your UI elements
 ImGui::Begin("Vulkan Dashboard");
-        std::cout << "I 5\n";
+//        std::cout << "I 5\n";
 ImGui::Text("Application running smoothly.");
-        std::cout << "I 6\n";
+//        std::cout << "I 6\n";
 ImGui::End();
 
         // Your normal UI code here...
@@ -1825,17 +1829,17 @@ if (ImGui::Button("Click Me!")) {
 }
 ImGui::End();
 
-        std::cout << "I 7\n";
+//        std::cout << "I 7\n";
 
 // 3. Finalise the geometry vertices layout 
 ImGui::Render();
-        std::cout << "I 8\n";
+//        std::cout << "I 8\n";
 
         recordGraphicsCommandBuffer(commandBuffer, imageIndex);
 
-        std::cout << "I 9\n";
+//        std::cout << "I 9\n";
         //
-        std::cout << "I 10\n";
+//        std::cout << "I 10\n";
 
         VkSubmitInfo submitInfo{};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
