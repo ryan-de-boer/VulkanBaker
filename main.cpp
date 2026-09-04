@@ -40,8 +40,13 @@ const uint32_t TEXTURE_WIDTH = 512;
 const uint32_t TEXTURE_HEIGHT = 512;
 //const uint32_t WINDOW_WIDTH = 800;
 //const uint32_t WINDOW_HEIGHT = 600;
-const uint32_t WINDOW_WIDTH = 1024*2;
-const uint32_t WINDOW_HEIGHT = 768*2;
+//const uint32_t WINDOW_WIDTH = 1024*2;
+//const uint32_t WINDOW_HEIGHT = 768*2;
+uint32_t WINDOW_WIDTH = 1024;
+uint32_t WINDOW_HEIGHT = 768;
+
+int SWINDOW_WIDTH = 1024;
+int SWINDOW_HEIGHT = 768;
 
     uint32_t g_imageIndex;
 
@@ -573,8 +578,27 @@ if (result != VK_SUCCESS) {
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
         glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 
+// Force the window frame buffer and screen coordinates to scale 1:1 natively
+// This completely removes the 150% cursor drift offset across the entire screen grid
+//glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_FALSE); 
 
 
+    // // --- HIGH-DPI INITIAL 150% MATCH FIX ---
+    // // 1. Initialise a temporary hidden helper window to fetch your display profile scale
+    // glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+    // GLFWwindow* temp_win = glfwCreateWindow(1, 1, "", nullptr, nullptr);
+    // float xscale = 1.0f, yscale = 1.0f;
+    // if (temp_win) {
+    //     glfwGetWindowContentScale(temp_win, &xscale, &yscale);
+    //     glfwDestroyWindow(temp_win);
+    // }
+    // glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE);
+
+    // // 2. Multiply your design variables by your system configuration scale (e.g. 1.5)
+    // // Assuming your base design coordinates were something like 800 x 600:
+    // WINDOW_WIDTH  = static_cast<int>(1024.0f * xscale);
+    // WINDOW_HEIGHT = static_cast<int>(768.0f * yscale);
+    // // ----------------------------------------
 
 
         window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Vulkan Compute & Graphics", nullptr, nullptr);
@@ -582,6 +606,8 @@ if (result != VK_SUCCESS) {
             std::cerr << "Failed to create GLFW window" << std::endl;
             return false;
         }
+glfwGetFramebufferSize(window, &SWINDOW_WIDTH, &SWINDOW_HEIGHT);
+
 //        if (window) {
 //    glfwSetWindowSize(window, WINDOW_WIDTH, WINDOW_HEIGHT);
 //}
@@ -780,7 +806,29 @@ ImGui_ImplVulkan_LoadFunctions(
 );
 
     // 2. Initialize the platform window wrapper
-    ImGui_ImplGlfw_InitForVulkan(window, true);
+//    ImGui_ImplGlfw_InitForVulkan(window, true);
+    ImGui_ImplGlfw_InitForVulkan(window, false);
+glfwSetWindowFocusCallback(window, ImGui_ImplGlfw_WindowFocusCallback);
+glfwSetCursorEnterCallback(window, ImGui_ImplGlfw_CursorEnterCallback);
+glfwSetMouseButtonCallback(window, ImGui_ImplGlfw_MouseButtonCallback);
+glfwSetScrollCallback(window, ImGui_ImplGlfw_ScrollCallback);
+glfwSetKeyCallback(window, ImGui_ImplGlfw_KeyCallback);
+glfwSetCharCallback(window, ImGui_ImplGlfw_CharCallback);
+
+    // // --- NATIVE 150% HIGH-DPI INPUT FIX ---
+    // // 1. Fetch your monitor's initial scale multiplier profile
+    // float xscale, yscale;
+    // glfwGetWindowContentScale(window, &xscale, &yscale);
+    // std::cout << "GWS xscale: "<<xscale<<", yscale: " <<yscale<<"\n";
+    
+    // // 2. Set ImGui's Font global scaling ratio directly
+    // ImGui::GetIO().FontGlobalScale = 1.0f / xscale; // Scales mouse grid projection back to 1:1
+    
+    // // 3. Optional: Register a dynamic listener if you move windows between monitors
+    // glfwSetWindowContentScaleCallback(window, [](GLFWwindow* win, float x_scale, float y_scale) {
+    //     ImGui::GetIO().FontGlobalScale = 1.0f / x_scale;
+    // });
+    // // --------------------------------------
 
         // 3. CREATE A DEDICATED DESCRIPTOR POOL FOR IMGUI
     VkDescriptorPoolSize pool_sizes[] = {
@@ -974,7 +1022,7 @@ ImGui_ImplVulkan_LoadFunctions(
 
         VkExtent2D extent = capabilities.currentExtent;
         if (extent.width == UINT32_MAX) {
-            extent = {WINDOW_WIDTH, WINDOW_HEIGHT};
+            extent = {(uint)SWINDOW_WIDTH, (uint)SWINDOW_HEIGHT};
         }
 
         uint32_t imageCount = capabilities.minImageCount + 1;
@@ -1133,8 +1181,8 @@ ImGui_ImplVulkan_LoadFunctions(
             framebufferInfo.renderPass = renderPass;
             framebufferInfo.attachmentCount = 1;
             framebufferInfo.pAttachments = attachments;
-            framebufferInfo.width = WINDOW_WIDTH;
-            framebufferInfo.height = WINDOW_HEIGHT;
+            framebufferInfo.width = SWINDOW_WIDTH;
+            framebufferInfo.height = SWINDOW_HEIGHT;
             framebufferInfo.layers = 1;
 
             if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, &swapchainFramebuffers[i]) != VK_SUCCESS) {
@@ -1392,14 +1440,14 @@ ImGui_ImplVulkan_LoadFunctions(
         VkViewport viewport{};
         viewport.x = 0.0f;
         viewport.y = 0.0f;
-        viewport.width = (float)WINDOW_WIDTH;
-        viewport.height = (float)WINDOW_HEIGHT;
+        viewport.width = (float)SWINDOW_WIDTH;
+        viewport.height = (float)SWINDOW_HEIGHT;
         viewport.minDepth = 0.0f;
         viewport.maxDepth = 1.0f;
 
         VkRect2D scissor{};
         scissor.offset = {0, 0};
-        scissor.extent = {WINDOW_WIDTH, WINDOW_HEIGHT};
+        scissor.extent = {(uint)SWINDOW_WIDTH, (uint)SWINDOW_HEIGHT};
 
         VkPipelineViewportStateCreateInfo viewportState{};
         viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
@@ -1539,6 +1587,13 @@ ImGui_ImplVulkan_LoadFunctions(
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         vkBeginCommandBuffer(commandBuffer, &beginInfo);
 
+        // --- DYNAMIC HIGH-DPI SCALING RESOLUTION ---
+        int current_fb_width, current_fb_height;
+        glfwGetFramebufferSize(window, &current_fb_width, &current_fb_height); // Extracts actual layout pixels
+          std::cout << "Re 1 w: "<<current_fb_width<< ", h: "<< current_fb_height <<"\n";
+        // -------------------------------------------
+
+
         VkClearValue clearColor = {{0.0f, 0.0f, 0.0f, 1.0f}};
 
         VkRenderPassBeginInfo renderPassInfo{};
@@ -1546,11 +1601,35 @@ ImGui_ImplVulkan_LoadFunctions(
         renderPassInfo.renderPass = renderPass;
         renderPassInfo.framebuffer = swapchainFramebuffers[imageIndex];
         renderPassInfo.renderArea.offset = {0, 0};
-        renderPassInfo.renderArea.extent = {WINDOW_WIDTH, WINDOW_HEIGHT};
+        renderPassInfo.renderArea.extent = {(uint)SWINDOW_WIDTH, (uint)SWINDOW_HEIGHT};
+//        renderPassInfo.renderArea.extent = {(int)((double)WINDOW_WIDTH*1.5), (int)((double)WINDOW_HEIGHT*1.5)};
+        // Pass the live framebuffer dimensions instead of the hardcoded window constraints!
+//        renderPassInfo.renderArea.extent = { static_cast<uint32_t>(current_fb_width), static_cast<uint32_t>(current_fb_height) };      
         renderPassInfo.clearValueCount = 1;
         renderPassInfo.pClearValues = &clearColor;
 
         vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+        //         // --- ADD THE DYNAMIC VIEWPORT SCISSOR HOOKS FOR 150% DPI ---
+        // // Fetch the true physical pixel measurements from GLFW right now
+        // int fb_width, fb_height;
+        // glfwGetFramebufferSize(window, &fb_width, &fb_height);
+
+        // VkViewport viewport{};
+        // viewport.x = 0.0f;
+        // viewport.y = 0.0f;
+        // viewport.width = static_cast<float>(fb_width);
+        // viewport.height = static_cast<float>(fb_height);
+        // viewport.minDepth = 0.0f;
+        // viewport.maxDepth = 1.0f;
+        // vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+
+        // VkRect2D scissor{};
+        // scissor.offset = {0, 0};
+        // scissor.extent = { static_cast<uint32_t>(fb_width), static_cast<uint32_t>(fb_height) };
+        // vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+        // // -----------------------------------------------------------
+
 
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
@@ -1685,9 +1764,52 @@ if (g_capture)
 ImGui_ImplVulkan_NewFrame();
         std::cout << "I 2\n";
 ImGui_ImplGlfw_NewFrame();
+
+
+    // --- THE ABSOLUTE WAYLAND FRACTIONAL SCALING FIX ---
+    int w_width, w_height;
+    int fb_width, fb_height;
+    glfwGetWindowSize(window, &w_width, &w_height);
+    glfwGetFramebufferSize(window, &fb_width, &fb_height);
+
+    ImGuiIO& io = ImGui::GetIO();
+    // Force ImGui's coordinate grid to look at the exact pixel buffer layout size
+    io.DisplaySize = ImVec2((float)fb_width, (float)fb_height);
+    io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
+
+    // Re-map the raw GLFW mouse coordinates to fit the physical pixel matrix space 1:1
+    if (w_width > 0 && w_height > 0) {
+        double mouse_x, mouse_y;
+        glfwGetCursorPos(window, &mouse_x, &mouse_y);
+        
+        // Scale the mouse positions up to match the secret 2.0x fractional surface space
+        io.MousePos = ImVec2(
+            (float)mouse_x * ((float)fb_width / (float)w_width), 
+            (float)mouse_y * ((float)fb_height / (float)w_height)
+        );
+    }
+    // ---------------------------------------------------
+
+
+
+
+
         std::cout << "I 3\n";
 ImGui::NewFrame();
         std::cout << "I 4\n";
+
+// // --- ADD THIS INPUT OFFSET FIX ---
+// int screen_w, screen_h;
+// int framebuffer_w, framebuffer_h;
+// glfwGetWindowSize(window, &screen_w, &screen_h);
+// glfwGetFramebufferSize(window, &framebuffer_w, &framebuffer_h);
+
+// ImGuiIO& io = ImGui::GetIO();
+// if (screen_w > 0 && screen_h > 0) {
+//     io.DisplaySize = ImVec2((float)screen_w, (float)screen_h);
+//     io.DisplayFramebufferScale = ImVec2((float)framebuffer_w / screen_w, (float)framebuffer_h / screen_h);
+// }
+// // ---------------------------------
 
 // 2. Write your UI elements
 ImGui::Begin("Vulkan Dashboard");
@@ -1695,6 +1817,14 @@ ImGui::Begin("Vulkan Dashboard");
 ImGui::Text("Application running smoothly.");
         std::cout << "I 6\n";
 ImGui::End();
+
+        // Your normal UI code here...
+ImGui::Begin("Control Panel");
+if (ImGui::Button("Click Me!")) {
+    std::cout << "Button clicked safely!\n";
+}
+ImGui::End();
+
         std::cout << "I 7\n";
 
 // 3. Finalise the geometry vertices layout 

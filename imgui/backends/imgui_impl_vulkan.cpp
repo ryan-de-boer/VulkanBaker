@@ -564,6 +564,10 @@ void ImGui_ImplVulkan_RenderDrawData(ImDrawData* draw_data, VkCommandBuffer comm
     // CRITICAL FIX HERE: Force ImGui to strictly use your application's current swapchain image index
     wrb->Index = g_imageIndex;
 
+    // 2. ADD THIS CRITICAL FIX FOR INPUT SCALING:
+    // Update the backend data's main buffer size parameters to prevent coordinate drift
+    bd->MainWindowRenderBuffers.Count = v->ImageCount;
+
     ImGui_ImplVulkan_FrameRenderBuffers* rb = &wrb->FrameRenderBuffers[wrb->Index];
 
     if (draw_data->TotalVtxCount > 0)
